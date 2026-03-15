@@ -1,14 +1,10 @@
+use hex;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
-use std::env;
-use hex;
 
 type HmacSha256 = Hmac<Sha256>;
 
-pub fn verify_github_signature(payload: &str, signature: &str) -> bool {
-    let secret = env::var("GITHUB_WEBHOOK_SECRET").unwrap_or_else(|_| "default_secret".into());
-    
-    // GitHub sends signature as: sha256=HEX_STRING
+pub fn verify_github_signature(payload: &[u8], signature: &str, secret: &str) -> bool {
     let hex_sig = if signature.starts_with("sha256=") {
         &signature[7..]
     } else {
@@ -20,11 +16,9 @@ pub fn verify_github_signature(payload: &str, signature: &str) -> bool {
         Err(_) => return false,
     };
 
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-        .expect("HMAC can take key of any size");
-        
-    mac.update(payload.as_bytes());
-    
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).expect("invalid secret length");
+    mac.update(payload);
+
     mac.verify_slice(&decoded_sig).is_ok()
 }
 
@@ -34,31 +28,36 @@ mod tests {
 
     #[test]
     fn test_valid_signature() {
-        unsafe { env::set_var("GITHUB_WEBHOOK_SECRET", "my_secret"); }
-        let payload = "{\"action\": \"opened\"}";
-        
-        let mut mac = HmacSha256::new_from_slice(b"my_secret").unwrap();
-        mac.update(payload.as_bytes());
+        let secret = "my_secret";
+        let payload = b"{\"action\": \"opened\"}";
+
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+        mac.update(payload);
         let expected_signature = format!("sha256={}", hex::encode(mac.finalize().into_bytes()));
 
-        assert!(verify_github_signature(payload, &expected_signature));
+        assert!(verify_github_signature(
+            payload,
+            &expected_signature,
+            secret
+        ));
     }
 
     #[test]
     fn test_invalid_signature() {
-        unsafe { env::set_var("GITHUB_WEBHOOK_SECRET", "my_secret"); }
-        let payload = "{\"action\": \"opened\"}";
-        let bad_signature = "sha256=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+        let secret = "my_secret";
+        let payload = b"{\"action\": \"opened\"}";
+        let bad_signature =
+            "sha256=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 
-        assert!(!verify_github_signature(payload, bad_signature));
+        assert!(!verify_github_signature(payload, bad_signature, secret));
     }
 
     #[test]
     fn test_missing_sha256_prefix() {
-        unsafe { env::set_var("GITHUB_WEBHOOK_SECRET", "my_secret"); }
-        let payload = "{\"action\": \"opened\"}";
+        let secret = "my_secret";
+        let payload = b"{\"action\": \"opened\"}";
         let bad_signature = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 
-        assert!(!verify_github_signature(payload, bad_signature));
+        assert!(!verify_github_signature(payload, bad_signature, secret));
     }
 }

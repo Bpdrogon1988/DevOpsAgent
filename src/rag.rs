@@ -1,30 +1,37 @@
 use async_openai::{
-    types::{CreateChatCompletionRequestArgs, ChatCompletionRequestMessageArgs, Role},
     Client,
+    types::{ChatCompletionRequestMessageArgs, CreateChatCompletionRequestArgs, Role},
 };
 
-pub async fn triage_error(error_log: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let client = Client::new(); // Automatically picks up OPENAI_API_KEY from environment
+pub async fn triage_error(error_log: &str, model: &str) -> Result<String, String> {
+    let client = Client::new();
 
     let request = CreateChatCompletionRequestArgs::default()
         .max_tokens(512u16)
-        .model("gpt-4o-mini")
+        .model(model)
         .messages([
             ChatCompletionRequestMessageArgs::default()
                 .role(Role::System)
                 .content("You are an expert DevOps engineer who diagnoses deployment errors. Review the provided standard error logs and suggest a concise root cause and solution.")
-                .build()?
+                .build()
+                .map_err(|err| err.to_string())?
                 .into(),
             ChatCompletionRequestMessageArgs::default()
                 .role(Role::User)
                 .content(error_log)
-                .build()?
+                .build()
+                .map_err(|err| err.to_string())?
                 .into(),
         ])
-        .build()?;
+        .build()
+        .map_err(|err| err.to_string())?;
 
-    let response = client.chat().create(request).await?;
-    
+    let response = client
+        .chat()
+        .create(request)
+        .await
+        .map_err(|err| err.to_string())?;
+
     let solution = match response.choices.first() {
         Some(choice) => choice.message.content.clone(),
         None => "No solution provided by AI".to_string(),
