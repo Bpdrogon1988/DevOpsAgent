@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+async-trait = "0.1.89"
 async-openai = { version = "0.10.2", features = ["default"] }
 axum = "0.8.8"
 dotenv = "0.15.0"
@@ -14,5 +15,8 @@ qdrant-client = "1.17.0"
 reqwest = { version = "0.13.2", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_yaml = "0.9.34"
+shlex = "1.3.0"
 sha2 = "0.10.9"
 tokio = { version = "1.50.0", features = ["full"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.19", features = ["fmt", "env-filter"] }

@@ -1,6 +1,9 @@
 name: "Sample Deployment Workflow"
 steps:
   - name: "Pull latest code"
+    type: "shell"
     command: "echo 'Pulling code...'"
-  - name: "Run failing database migration"
-    command: "psql -U missing_user -d wrong_db || exit 1"
+  - name: "Call status endpoint"
+    type: "http"
+    method: "GET"
+    url: "https://example.com/health"

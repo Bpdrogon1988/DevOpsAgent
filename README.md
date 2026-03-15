@@ -15,7 +15,7 @@ A secure, high-performance DevOps automation agent built in Rust. This agent lis
 The agent consists of several core modules:
 - `api.rs`: Handles HTTP routes and Shared State.
 - `security.rs`: Cryptographic validation of webhook signatures.
-- `executor.rs`: Asynchronous shell command execution.
+- `executor.rs`: Process execution utilities (shell + direct binary execution).
 - `config.rs`: YAML parsing and Environment Variable management.
 - `rag.rs`: AI Triage engine for error analysis.
 
@@ -27,6 +27,7 @@ Create a `.env` file in the root directory:
 GITHUB_WEBHOOK_SECRET=your_secret_here
 OPENAI_API_KEY=your_openai_key_here
 QDRANT_URL=http://localhost:6333
+ENABLED_EXECUTORS=shell,http
 ```
 
 ### 2. Define Your Workflow
@@ -35,11 +36,16 @@ Edit `workflow.yaml` to set your deployment steps:
 name: "Production Deployment"
 steps:
   - name: "Pull Code"
+    type: "shell"
     command: "git pull origin main"
-  - name: "Build"
-    command: "cargo build --release"
-  - name: "Restart Service"
-    command: "systemctl restart my_app"
+  - name: "Terraform Plan"
+    type: "terraform"
+    command: "plan -input=false"
+  - name: "Notify"
+    type: "http"
+    method: "POST"
+    url: "https://hooks.example.com/deploy"
+    body: "{\"status\":\"started\"}"
 ```
 
 ### 3. Run the Agent
@@ -47,6 +53,12 @@ steps:
 cargo run
 ```
 The agent will start listening on `http://localhost:3000`.
+
+### 4. Discover Executor Capabilities
+```bash
+curl http://localhost:3000/capabilities
+```
+This returns executor types (`shell`, `docker`, `kubernetes`, `terraform`, `ansible`, `http`) and whether each is enabled by policy.
 
 ## 🛡️ Security
 This agent implements strict push protection. Secrets are managed via environment variables and are excluded from version control by default.
