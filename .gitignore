@@ -1,0 +1,17 @@
+# Built files
+/target/
+
+# Environment Variables
+.env
+.env*.local
+
+# OS Generated
+.DS_Store
+Thumbs.db
+
+# Any temporary test outputs or databases
+/qdrant_storage/
+*.log
+test_out.txt
+agent.log
+build_output.txt

@@ -1,0 +1,6 @@
+name: "Sample Deployment Workflow"
+steps:
+  - name: "Pull latest code"
+    command: "echo 'Pulling code...'"
+  - name: "Run failing database migration"
+    command: "psql -U missing_user -d wrong_db || exit 1"
