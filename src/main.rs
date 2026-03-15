@@ -3,31 +3,48 @@ mod config;
 mod executor;
 mod rag;
 mod security;
+mod services;
+
+use std::sync::Arc;
 
 use axum::Router;
-use std::sync::Arc;
-use std::net::SocketAddr;
+use config::{RuntimeConfig, Workflow};
+use services::workflow::WorkflowService;
+use tracing::info;
 
 pub struct AppState {
-    pub workflow: config::Workflow,
+    pub workflow: Workflow,
+    pub runtime: RuntimeConfig,
+    pub workflow_service: Arc<WorkflowService>,
 }
 
 #[tokio::main]
 async fn main() {
-    println!("Starting DevOps Agent...");
+    tracing_subscriber::fmt()
+        .with_target(true)
+        .with_level(true)
+        .compact()
+        .init();
 
-    // 1. Load configuration (secrets, workflows)
-    let workflow = config::load_config();
-    let state = Arc::new(AppState { workflow });
+    info!("Starting DevOps Agent...");
 
-    // 2. Setup the application router with shared state
-    let app = Router::new()
-        .merge(api::routes(state.clone()));
+    let app_config =
+        config::load_config().unwrap_or_else(|err| panic!("failed to load configuration: {err}"));
+    let workflow_service = Arc::new(WorkflowService::new(
+        app_config.runtime.openai_model.clone(),
+    ));
 
-    // 3. Start the server
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("Listening on {}", addr);
-    
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let state = Arc::new(AppState {
+        workflow: app_config.workflow,
+        runtime: app_config.runtime.clone(),
+        workflow_service,
+    });
+
+    let app = Router::new().merge(api::routes(state));
+
+    info!(address = %app_config.runtime.bind_addr, "Listening");
+    let listener = tokio::net::TcpListener::bind(app_config.runtime.bind_addr)
+        .await
+        .unwrap();
     axum::serve(listener, app).await.unwrap();
 }
